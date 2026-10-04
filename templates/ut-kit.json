@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "maven": "mvn",
+  "javaHome": "",
+  "localRepository": "",
+  "profile": "ut-automator",
+  "outputRoot": "ut-output",
+  "protectedPaths": [
+    "src",
+    "pom.xml",
+    ".mvn",
+    "ut-kit.json"
+  ],
+  "projectRules": []
+}

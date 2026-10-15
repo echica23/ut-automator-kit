@@ -6,7 +6,7 @@
 
 AIが生成したUTを既存UTから分離して実行し、実際のSurefire/JaCoCo結果を機械集計する。実行フォルダと変更確認の方法を統一し、過去の結果の使い回しを避ける。
 
-AIが担当する対象選定、ワイルドカード展開、UT生成、仕様根拠の確認、固定ケースIDの照合、原因分析、report.md/review.md、トークン概算は実装しない。ファイルを削除・移動する処理、Git操作、設定の自動導入も行わない。
+AIが担当する対象選定、ワイルドカード展開、UT生成、仕様根拠の確認、固定ケースIDの照合、原因分析、report.md、作業全体の時間計測は実装しない。ファイルを削除・移動する処理、Git操作、設定の自動導入も行わない。
 
 ## 2. 前提
 
@@ -29,13 +29,14 @@ PowerShell 7、設定済みのMavenモジュール、Java、JUnit5、Mockito、J
 | Config | 共通。省略時ut-kit.json | 相対ならProject基準。executeにも同じ設定を渡す |
 | Mode | prepareで必須。coverage/spec/review | executeではrun.jsonの値を使用 |
 | Targets | prepareで必須。完全修飾クラス名の配列 | `*`は不可。Project/src/main/java以下の対応する.javaの存在を検査 |
-| Spec | prepareのspec/reviewで必須 | 相対ならProject基準。既存のファイルまたはディレクトリ |
+| Spec | prepareのspec/reviewでJavadocを選ばない場合に必須 | 相対ならProject基準。既存のファイルまたはディレクトリ |
+| Javadoc | prepareのspec/reviewでSpecの代わりに使うスイッチ | Specとの併用、coverageでの指定は拒否 |
 | Output | prepareの出力ルート指定 | 相対ならProject基準。未指定なら設定outputRoot |
 | Run | executeで必須。prepareの返却パス | Resolve-Pathで解決。相対なら呼出し時の作業ディレクトリ基準なので絶対パス推奨 |
 
-execute時のMode/Targets/Spec/Outputは実行設定を上書きしない。run.jsonに保存された値を使う。coverageではSpecは使用しない。
+execute時のMode/Targets/Spec/Javadoc/Outputは実行設定を上書きしない。run.jsonに保存された値を使う。coverageではSpecは使用しない。
 
-AIコマンドとの対応: `-P`→Project、`-coverage/-spec/-review`→Mode、対象→解決済みTargets、`-D`→Spec、`-O`→Output。
+AIコマンドとの対応: `-P`→Project、`-coverage/-spec/-review`→Mode、対象→解決済みTargets、`-D`→Spec、`-J`→Javadoc、`-O`→Output。
 
 ## 4. 設定ファイル
 
@@ -63,7 +64,7 @@ ProjectとConfigを解決し、JSON、schemaVersion、pom.xml、導入用プロ�
 ### prepare
 
 1. ModeとTargetsを確認。各クラス名をパスに変換し、標準ソースルートに存在するか検査する。
-2. spec/reviewの場合はSpecを確認し、保護対象へ追加する。
+2. spec/reviewはSpecまたはJavadocを選択。Specならパス確認と保護追加、Javadocなら既存src保護を利用。併用・両方省略、coverageのJavadocは拒否する。
 3. Outputまたは設定outputRootを絶対化する。保護対象自身・その配下、Project自身、Project/.gitで始まるパスへの出力を拒否する。
 4. `<出力ルート>/<Mode>/<yyyyMMdd-HHmmss>-<GUID先頭8文字>/` を作る。日時部分は実行ホストのローカル時刻。一意性はランダム値と既存フォルダ検査でも確保する。
 5. java/を作り、保護対象のパスとSHA-256をbefore-hashes.jsonへ保存する。
@@ -85,7 +86,7 @@ AIが実行フォルダのjava/へUTを配置する。この間に保護対象�
 6. Projectを作業ディレクトリにして、Maven test、次にjacoco:reportを呼ぶ。標準出力・標準エラーを別々のログへ保存する。通常のテストFAILは後者を妨げない。
 7. Maven呼出し区間のfinallyで作業ディレクトリとJAVA_HOMEを戻す。起動例外はexecutionErrorに記録する。
 8. 保護対象を再照合してchange-check.jsonへ記録する。変更を元に戻す処理は行わない。
-9. Surefire XMLとJaCoCo XMLを読み、case-results.json、summary.json、execution.mdを作成する。
+9. Surefire XMLとJaCoCo XMLを読み、case-results.json、summary.jsonを作成する。
 10. 標準出力にsummary.jsonの絶対パスを返し、集計結果に応じた終了コードで終了する。
 
 再試行用のフォルダをスクリプト自身が自動作成することはない。AI/利用者がprepareから開始する。
@@ -111,18 +112,27 @@ Maven内部の依存取得、コンパイル、プラグイン処理はMavenの�
 | --- | --- | --- |
 | java/ | prepare | AIが後から置く生成UTのルート |
 | before-hashes.json | prepare | 絶対ファイルパス→SHA-256の対応表 |
-| run.json | prepare | schemaVersion/project/config/mode/targets/spec/projectRules（path・sha256配列）/runId/runPath/protectedPaths/startedAt |
+| run.json | prepare | schemaVersion/project/config/mode/targets/spec/specSource/projectRules（path・sha256配列）/runId/runPath/protectedPaths/startedAt |
 | project-rules.json | prepare | schemaVersion、files（path・sha256配列）、status。未設定はNOT_CONFIGURED、登録ありはPENDING_AI_REVIEW。内容適用の完了を意味しない |
 | execution-started.json | execute開始前 | 開始時刻、maven、引数、UTクラス一覧。再利用防止マーカー |
 | ut-hashes.json | Maven実行前 | 生成JavaファイルのSHA-256。実行後の自動照合はしない |
 | test.log / coverage.log | Maven実行 | 各呼出しの出力。起動できなければ片方が存在しない場合がある |
 | build/ | Maven | コンパイル出力、Surefire、JaCoCo。Maven設定に依存 |
 | change-check.json | Maven呼出し後 | unchangedとchangedPaths |
-| case-results.json | 集計時 | name/class/outcome/failure/error/output。outputにはsystem-outを格納 |
-| summary.json | 集計時 | 実行状態、終了コード、件数、coverage、missingCoverage、unexpectedSuites、protectedChanges、executionError等 |
-| execution.md | 集計時 | 上記の人間向け概要。仕様照合を含む最終レポートではない |
+| case-results.json | 集計時 | name/class/outcome/failure/error/output。outputにはsystem-outの本文（CDATAを含む）を格納 |
+| summary.json | 集計時 | 実行状態、終了コード、件数、coverage、missingCoverage、unexpectedSuites、protectedChanges、executionError、mavenTiming等 |
 
-report.md、review.md、token-usage.json、spec-sources.json、spec-unknown.json、rules-application.jsonはAIが作成する。ルール内容の解釈・矛盾判断・適用検証はスクリプトでは行わない。SPEC_UNKNOWNはJUnitの実行状態ではなく、スクリプトはこれをFAIL/SKIPとして集計しない。全ケースの期待値が未確定ならAIはexecuteを呼ばず、prepareのフォルダへ未実行レポートを残す。summary.jsonのaiReportCompleteはfalseで固定し、AIレポートが完成したと自動判定しない。
+AIが作成する人間向け説明はreport.mdのみ。仕様参照・未確定ケース・Rules適用とreviewの分析もここに記載する。ルール内容の解釈・矛盾判断・適用検証はスクリプトでは行わない。SPEC_UNKNOWNはJUnitの実行状態ではなく、スクリプトはこれをFAIL/SKIPとして集計しない。全ケースの期待値が未確定ならAIはexecuteを呼ばず、prepareのフォルダへ未実行レポートを残す。summary.jsonのaiReportCompleteはfalseで固定し、AIレポートが完成したと自動判定しない。
+
+### 所要時間
+
+summary.jsonのmavenTimingはtestSeconds、coverageSeconds、totalSeconds。
+test / jacoco:reportの各起動試行から終了までをStopwatchで測り、秒を小数第3位に丸める。
+起動例外でもfinallyで試行区間を保存し、未着手の処理はnull。totalSecondsは記録した秒数の合計。
+UT生成・AI分析・XML集計・ユーザー待ちの時間は含まない。全体時間とは重複加算しない。
+事前検査や集計中の例外でsummary.jsonがない場合、時間記録も取得済みとは扱わない。
+既存summaryへの追加フィールドであり、旧成果物を変更しない。
+対象クラスの実行確認済み件数はスクリプトでは推定せず、AIがUTと実測結果を照合してreport.mdに記載する。
 
 ## 8. 集計・判定
 
@@ -172,3 +182,7 @@ Maven呼出しで例外が出た場合、未実施の終了コードは-1。test
 初版の実行検証は [検証記録](validation.md) を参照。コメント追加時はPowerShell構文解析を行い、コメント・改行を除くトークン列が変更前後で一致することを確認した。説明だけの変更ではMavenを再実行していない。
 
 実行ロジックを修正する場合は、通常UTの保持、生成UTの分離、出力先変更、FAIL後の計測、0件/全件skip、実行ID再利用拒否、保護対象変更検出を優先して検証する。
+
+Javadoc選択時のspecはnull、specSourceはjavadoc。文書指定はdocument、coverageはimplementation。
+スクリプトはJavadocの有無や契約の意味を判定しない。旧manifestは引き続き実行可能。
+参照の選択と旧specSource省略時の解釈は[Javadocモード](javadoc-mode.md)を参照。

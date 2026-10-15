@@ -95,3 +95,82 @@ project-rules-validation-latest.txt。検証専用設定を-Configで渡し、�
 キットのプロンプト・設計で方針を定義し、代表的な命名と追加レビューのみ適用確認した。
 また、既存case-results.jsonのoutputがXML要素名の文字列になるケースを確認したため、
 ケースIDの照合には元のSurefire XMLを使用した。この既存の集計課題は今回変更していない。
+
+## レポート簡素化・時間計測の検証（2026-10-15）
+
+人間向け説明をreport.mdへ統合し、成功ケースを集計表示に変更した。
+AI作成の重複JSON・review.md・トークン記録と、機械生成のexecution.mdを新規出力から外した。
+過去の検証記録と成果物は履歴として保持している。上記2026-10-04のファイル名は当時の仕様である。
+
+既存Validate.ps1を新規フォルダで実行し、51項目すべて成功。
+Rules未設定/登録あり × coverage/spec/reviewの6実行で以前と同じ結果となった。
+
+| 設定 | モード | 件数 | 成功 | 失敗 | Line | Branch |
+| --- | --- | ---: | ---: | ---: | --- | --- |
+| 未設定 / 登録あり（各） | coverage | 35 | 35 | 0 | 32/32 | 24/24 |
+| 未設定 / 登録あり（各） | spec / review（各） | 48 | 42 | 6 | 32/32 | 24/24 |
+
+正当な6件の仕様FAIL、FAIL後のJaCoCo生成、生成UTの分離を維持した。
+既存ガード（実行ID再利用、仕様省略、保護先出力、UTなし、全件skip、
+ルール形式・変更・欠落の拒否）も維持した。
+
+追加のValidate-ReportChanges.ps1は25項目すべて成功。
+
+- 全6実行のtest/JaCoCo時間が記録され、合計と一致。
+- execution.mdを生成しない。
+- 全6実行のcase-results.json出力を元Surefire XMLと照合し、件数・本文が一致。
+  以前確認していたCDATAの型名文字列化を修正し、固定IDを含む本文を保持した。
+- 存在しないMaven指定でEXECUTION_ERROR・終了コード2。
+  起動試行の時間を記録し、未着手のJaCoCo時間はnull、合計も整合。
+- 通常UTは1件成功。本番ソース・既存UT・仕様・元設定・POMのハッシュ一致。
+
+PowerShell構文解析、差分の空白検査、実行プロンプト・README・設計・ひな形の
+出力ルール整合性も確認した。トークンログを読む指示は削除し、
+Project Rules、SPEC_UNKNOWN、安全制約、private直接テスト禁止を維持した。
+
+証跡はテスト環境の report-validation-20261015-092315/。
+Validate.ps1、Validate-ReportChanges.ps1、checks.json、additional-checks.json、
+runs.json、protected-before/after.json、normal-ut.log、および各runのXML・JSON・ログを保存。
+同じ検証を行う場合は新しい検証フォルダへ両スクリプトをコピーし、
+Validate.ps1、Validate-ReportChanges.ps1の順に-Workspaceでそのフォルダを渡す。
+既存fixtureを利用するテスト環境専用の検証であり、公開キットの実行機能ではない。
+
+限界：この検証は実行基盤と指示書の整合性の確認であり、新しいAIセッションでの
+UT生成・レポート品質や、Copilot上の動作・速度改善を実測したものではない。
+作業全体の時間・実行確認済み対象クラス数はAIが根拠を確認してレポートへ記載する責務であり、
+今回追加したスクリプトの自動計測はMaven呼出し区間に限る。
+
+## Javadoc指定の検証（2026-10-15）
+
+-J（スクリプトではprepareの-Javadoc）をspec/reviewへ追加。
+以前のレポート簡素化に対する未コミット変更を保持して検証した。
+
+既存Validate.ps1の51項目とValidate-ReportChanges.ps1の25項目が成功。
+-Dのファイル/ディレクトリ指定、coverage、Rules有無の3モード、実行保護、
+時間計測、XML本文集計、通常UT1件成功は維持された。
+
+追加のValidate-Javadoc.ps1は17項目成功。独立したfixtureモジュールを作成し、
+元のテスト環境の本番ソースや設定は変更していない。
+
+- spec/reviewで-Javadocのみのprepareが成功し、specSource=javadoc、spec=null。
+- 記載契約「入力1は10、入力2は20」から固定期待値の2ケースを用意。
+  各モード1件成功・1件FAIL（実測99）、JaCoCo生成成功、保護対象変更なし。
+- SpecとJavadocの併用、両方省略を両モードで拒否。coverageのJavadocも拒否。
+- Javadocのみの変更もexecute前に検出し、Mavenを起動しない。
+- 文書指定のspecSource=documentと既存パス記録を確認。
+- 新規fixtureで旧形式相当のspecSource省略manifestを用意し、execute可能であることを確認。
+- prepareだけではMavenを起動しない。全件未確定時にexecuteを呼ばない判断はAI側の責務。
+
+代表的なAI確認としてspec/reviewのreport.mdを作成し、成功は集計、
+JD-02の契約不一致（期待20、実測99）と、JD-U01/JD-U02の未確定を個別に記載した。
+未記載の入力・変換規則を実装から補完せず、reviewの案は記載契約に従う場合の案とした。
+これは固定fixtureに対する確認であり、独立したAIセッションやCopilotでの
+自由形式Javadoc解析の品質評価ではない。継承・複雑な契約矛盾・外部資料選択の
+自動読解品質は未検証。Javadocの品質基準・執筆ガイドは今回追加していない。
+
+証跡: テスト環境 javadoc-validation-20261015-131056/。
+Validate.ps1、Validate-ReportChanges.ps1、Validate-Javadoc.ps1、
+checks.json、additional-checks.json、javadoc-checks.json、javadoc-runs.json、
+各runのUT・report.md・XML・ハッシュ・ログ。合計93チェック成功。
+再検証は新しいWorkspaceに3スクリプトをコピーして順に実行する。
+既存検証fixtureとローカル環境を使用するテスト環境専用スクリプトである。

@@ -35,7 +35,7 @@ AIは実プロジェクトの規則・名称・秘密情報を公開キットへ
 | --- | --- |
 | 安全・変更範囲 | 実行環境とキットの制約が最優先。本番コード、既存UT、設定、仕様、Rulesを実行中に変更しない。Git操作は禁止 |
 | テスト方法 | キットの必須制約内でProject Rulesを適用。未記入部分は汎用方針。依存Mockの既定方針など、明示された拡張可能部分を具体化できる |
-| spec/reviewの期待結果 | -Dの業務仕様 → Project Rules → 実装の順に照合する。ただし期待値のauthoritative sourceは-Dだけ。後二者を仕様不足の代替情報源にしない |
+| spec/reviewの期待結果 | 選択した仕様（-D資料／-J契約）→ Project Rules → 実装の順に照合する。ただし期待値のauthoritative sourceは選択した仕様だけ。後二者を仕様不足の代替情報源にしない |
 | coverageの期待結果 | 実装を解析して入力と固定期待値を決める。Project Rulesはテスト方法にだけ適用。仕様やRules内の業務値を期待値に採用しない |
 
 spec/reviewでは、仕様から一意に決まらない期待値をProject Rulesや実装で補完せず、
@@ -63,22 +63,18 @@ RULE_CONFLICTとして規則ID、矛盾、影響ケース、確認事項を記�
    外部リンクを自動的に再帰読込みする仕組みではなく、必要なファイルは明示的に登録する。
 3. prepareが返すrun.jsonとproject-rules.jsonのパス・ハッシュを確認し、その版を使って生成する。
    事前に読んだ版と違えば読み直す。変更後に同じ実行を続けず新しいprepareから開始する。
-4. AIはUT生成・モードに応じたレビューに適用し、rules-application.jsonへ証跡を残す。
+4. AIはUT生成・モードに応じたレビューに適用し、report.mdへ適用概要と問題の詳細を残す。
 5. executeは全登録ファイルを保護対象に含めて開始前・終了後に変更検出する。
    登録・ハッシュ検査は適用内容の妥当性の自動判定ではない。
 
-rules-application.jsonはAIが作成する。未設定時はstatus=NOT_CONFIGURED、配列は空。
-設定時は以下の項目を持つ。本文全文や秘密情報を複写せず、参照箇所と判断を記録する。
-
-- status: APPLIED / PARTIAL / NOT_CONFIGURED（矛盾や未読の影響が残ればPARTIAL）
-- files: path、sha256、readSections、omittedSectionsとその理由
-- applied: ruleId、source、section、対象、mode、適用内容、UTケースIDまたはレビュー箇所
-- rejected: ruleId、source、section、不採用理由と優先した制約
-- conflicts: status=RULE_CONFLICT、規則ID群、影響ケース、理由、確認事項
-- excludedTargets: 対象、除外理由、規則ID
-
-report.mdに適用概要と両JSONへのリンクを載せる。review.mdでは追加観点の結果と規則IDを対応させる。
-スクリプトはrules-application.jsonの意味を検証しない。存在だけで適用済みと判定しない。
+report.mdに未設定／適用／部分適用を記録する。未設定なら一行でよい。
+登録パス・ハッシュは機械生成のproject-rules.jsonを参照し、転記しない。
+読んだ節と未読範囲・理由、適用概要と代表的なUT/レビュー箇所を簡潔に示す。
+不採用は規則・出典・優先した制約、RULE_CONFLICTは規則ID群・影響ケース・理由・確認事項、
+除外は対象・理由・規則IDを指摘欄で個別に記録する。本文全文や秘密情報を複写しない。
+reviewの追加観点も同じレポートで規則IDと結果を対応付ける。
+rules-application.jsonやreview.mdは作成しない。
+スクリプトはルールの意味や適用内容を検証しない。ハッシュ検査成功だけで適用済みと判定しない。
 
 除外は実行前に要求された対象と実際の対象を分けて報告する。クラス全体の除外はprepareのTargetsへ
 含めず、除外一覧を残す。全クラス除外ならprepare/executeを呼ばず未実行理由と一覧を回答する。
@@ -91,3 +87,5 @@ report.mdに適用概要と両JSONへのリンクを載せる。review.mdでは�
 この参照証跡を維持したまま拡張できる。現状はAIによる関連性判断で、ルールDSLや自動lintではない。
 ハッシュは内容全体に対する変更検出であり、本文の一括コンテキスト投入や書込み禁止ではない。
 外部ファイルへのアクセス権を与える機能ではなく、実行環境の権限に従う。
+
+-JでもProject Rulesは期待値の補完元にしない。Javadoc参照と不一致の保証範囲は[Javadocモード](javadoc-mode.md)を参照。

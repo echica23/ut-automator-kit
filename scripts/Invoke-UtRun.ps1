@@ -4,7 +4,7 @@ AIが生成したUTを既存UTから分離して実行し、MavenとJaCoCoの結
 .DESCRIPTION
 prepare: 対象と設定を検査し、実行フォルダと変更確認用の基準値を作る。
 execute: AIがjava/へ配置したUTを実行し、XMLから結果を集計する。
-UT生成、仕様判断、原因分析、最終レポート、トークン計測はAIが担当する。
+UT生成、仕様判断、原因分析、最終レポートはAIが担当する。Mavenの所要時間はこのスクリプトで計測する。
 詳しい引数・成果物・終了条件は ../docs/script-spec.md を参照。
 .NOTES
 PowerShell 7用。設定済みで信頼できるMavenプロジェクトを前提とする。
@@ -16,6 +16,7 @@ param(
     [ValidateSet('coverage','spec','review')][string]$Mode,
     [string[]]$Targets,
     [string]$Spec,
+    [switch]$Javadoc,
     [string]$Output,
     [string]$Run,
     [string]$Config = 'ut-kit.json'
@@ -124,12 +125,27 @@ if ($Action -eq 'prepare') {
             throw "Source not found in standard source root: $target"
         }
     }
-    # spec/reviewでは仕様参照パス（ファイルまたはディレクトリ）を必須とする。
+    # 根拠を明示選択する。Javadocの読解はAIが担当し、ソースはsrcの保護で変更検出する。
+    if ($Javadoc -and $PSBoundParameters.ContainsKey('Spec')) {
+        throw 'Spec and Javadoc are mutually exclusive.'
+    }
+    if ($Mode -eq 'coverage' -and $Javadoc) {
+        throw 'Javadoc is only available for spec/review.'
+    }
+    $specSource = 'implementation'
+    if ($Mode -ne 'coverage') {
+        if ($Javadoc) {
+            $specSource = 'javadoc'
+        } else {
+            $specSource = 'document'
+        }
+    }
+    # 文書を根拠にする場合は仕様参照パスを必須とする。
     # ディレクトリは全ファイルを再帰的にハッシュ記録する。内容の選択・読解はAIが行う。
     $specPath = $null
-    if ($Mode -ne 'coverage') {
+    if ($specSource -eq 'document') {
         if (!$Spec) {
-            throw 'Spec required for spec/review.'
+            throw 'Spec required for spec/review unless Javadoc is selected.'
         }
         $specPath = (Resolve-Path -LiteralPath (Resolve-Under $root $Spec)).Path
         if (!(Test-Path -LiteralPath $specPath -PathType Leaf) -and
@@ -172,6 +188,7 @@ if ($Action -eq 'prepare') {
             mode = $Mode
             targets = @($Targets)
             spec = $specPath
+            specSource = $specSource
             projectRules = @($projectRules)
             runId = $id
             runPath = $runPath
@@ -290,6 +307,13 @@ $testExit = -1
 $coverageExit = -1
 $executionError = $null
 
+# 各Maven呼出しだけを計測する。未着手はnullで、0秒や成功とは扱わない。
+$mavenTiming = [ordered]@{
+    testSeconds = $null
+    coverageSeconds = $null
+    totalSeconds = 0.0
+}
+
 # Mavenは対象モジュールを作業ディレクトリとして起動する。
 
 # 通常のテストFAILは終了コードで受け、続いて同じ実行のJaCoCoを生成する。
@@ -297,14 +321,30 @@ $executionError = $null
 # 起動失敗等で例外になった場合はcatchへ進み、未実行の終了コードは-1のまま残る。
 Push-Location $root
 try {
-    & $maven @argsBase test *> (Join-Path $runPath 'test.log')
-    $testExit = $LASTEXITCODE
-    & $maven @argsBase jacoco:report *> (Join-Path $runPath 'coverage.log')
-    $coverageExit = $LASTEXITCODE
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    try {
+        & $maven @argsBase test *> (Join-Path $runPath 'test.log')
+        $testExit = $LASTEXITCODE
+    }
+    finally {
+        $timer.Stop()
+        $mavenTiming.testSeconds = [math]::Round($timer.Elapsed.TotalSeconds, 3)
+    }
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    try {
+        & $maven @argsBase jacoco:report *> (Join-Path $runPath 'coverage.log')
+        $coverageExit = $LASTEXITCODE
+    }
+    finally {
+        $timer.Stop()
+        $mavenTiming.coverageSeconds = [math]::Round($timer.Elapsed.TotalSeconds, 3)
+    }
 } catch {
     $executionError = $_.Exception.Message
 }
 finally {
+    $mavenTiming.totalSeconds = [math]::Round(
+        ([double]$mavenTiming.testSeconds + [double]$mavenTiming.coverageSeconds), 3)
     Pop-Location
     $env:JAVA_HOME = $envBefore
 }
@@ -352,7 +392,14 @@ if (Test-Path -LiteralPath $surefire) {
                 )
                 failure = [string]$case.failure.message
                 error = [string]$case.error.message
-                output = [string]$case.'system-out'
+                # CDATAを含むXmlElementも本文を保持する。文字列化だけだと型名になる。
+                output = $(
+                    if ($case.'system-out' -is [System.Xml.XmlNode]) {
+                        $case.'system-out'.InnerText
+                    } else {
+                        [string]$case.'system-out'
+                    }
+                )
             }
         }
     }
@@ -429,31 +476,13 @@ $summary = [ordered]@{
     unexpectedSuites = $unexpected
     protectedChanges = $changes
     executionError = $executionError
+    mavenTiming = $mavenTiming
     aiReportComplete = $false
 }
 
 # XML由来の証跡と機械集計を保存する。aiReportComplete=falseはAI工程が別であることを示す。
 Write-Json $cases (Join-Path $runPath 'case-results.json')
 Write-Json $summary (Join-Path $runPath 'summary.json')
-$lines = @(
-    '# 実行結果（機械集計）',
-    '',
-    "状態: $status",
-    "実行: $tests / 成功: $($summary.passed) / 失敗: $failures / エラー: $errors / スキップ: $skipped",
-    '',
-    '| 対象 | 指標 | covered | missed | % |',
-    '| --- | --- | ---: | ---: | ---: |'
-)
-foreach ($c in $coverage) {
-    $lines += "| $($c.target) | $($c.metric) | $($c.covered) | $($c.missed) | $($c.percent) |"
-}
-$lines += @(
-    '',
-    "未計測対象: $($missing -join ', ')",
-    '',
-    'AIによる仕様照合・原因分析・最終report.mdは別工程。PASSは業務仕様への適合を保証しない。'
-)
-$lines | Set-Content -LiteralPath (Join-Path $runPath 'execution.md') -Encoding utf8
 Write-Output (Join-Path $runPath 'summary.json')
 
 # 集計まで到達した場合の終了コード: 実行/計測不備=2、テストFAIL/ERROR=1、成功=0。

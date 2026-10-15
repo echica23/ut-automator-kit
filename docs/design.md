@@ -56,6 +56,12 @@ spec/reviewは-D資料または-J契約を明示選択し、併用・自動切�
 実装やProject Rulesで補完しない。根拠と保証範囲はreport.mdに集約する。
 選択・参照・保護・互換性の詳細は[Javadocモード](javadoc-mode.md)を参照。
 
+-JではJavadocを第一、通常コメントの明確な現在の契約を補助根拠とする。
+処理手順・TODO等は採用しない。期待結果に影響する契約矛盾はケース単位で
+SPEC_UNKNOWNとし、JUnitのskipにせず、影響しないケースは継続する。
+意味解析はAIの責務であり、specSource=javadocと両ランナーの処理は維持する。
+詳細は[Javadocモード](javadoc-mode.md)、例は[記述ガイド](javadoc-guide.md)を参照。
+
 ## PowerShell 5.1／7対応
 
 実行基盤を両ホストで共通化する。スクリプトはUTF-8 BOM付き、

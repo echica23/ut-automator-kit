@@ -30,7 +30,7 @@ rules/project.example.mdを参考に導入先のrules/project.md等へ記載し�
 
 特定エージェントの内部ログやトークン取得は導入条件にしない。ファイル操作と選択した実行基盤/Mavenの起動の可否を確認する。試運転ではreport.mdへの説明集約、成功ケースの集計、問題の個別記載、Maven時間を確認する。
 
-仕様資料が用意できない場合はspec/reviewの-Jを案内できる。-Dとの併用や暗黙の代替はせず、docs/javadoc-mode.mdの契約参照・SPEC_UNKNOWN・保証範囲に従う。新たな設定やJavadocの自動追記は不要。
+仕様資料が用意できない場合はspec/reviewの-Jを案内できる。-Dとの併用や暗黙の代替はせず、docs/javadoc-mode.mdの契約参照・SPEC_UNKNOWN・保証範囲に従う。通常コメントも補助根拠とし、期待結果に影響する矛盾はケース単位で未確定にする。記述方針はdocs/javadoc-guide.mdを案内する。新たな設定やJavadoc・コメントの自動追記は不要。
 
 ## 実行環境・Java互換性の確認
 

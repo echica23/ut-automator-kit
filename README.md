@@ -115,6 +115,10 @@ coverageも自己比較テストを許しません。実装を解析して入力
 
 ## Javadocを根拠にする場合
 
+-JではJavadocを第一の根拠とし、通常コメントに明記された契約も補助的に参照します。
+期待結果に影響する明確な矛盾は、該当ケースをSPEC_UNKNOWNとして報告し、他のケースは継続します。
+書き方と実装例は[契約コメントの記述ガイド](docs/javadoc-guide.md)を参照してください。
+
 設計資料を指定する-Dの代わりに、spec/reviewで-Jを明示指定できます。
 
 ```text
@@ -124,7 +128,7 @@ ut -P "C:\projects\my-app" -review com.example.MyService -J
 
 -Dと-Jは併用不可で、spec/reviewではどちらか一方が必須です。coverageでは-Jを使いません。
 記載された契約から期待値が決まるケースだけ生成し、不足・矛盾はSPEC_UNKNOWNとして部分継続します。
-report.mdに参照箇所と確認できた契約の範囲を示します。不一致はJavadocとの不一致であり、
+report.mdに参照箇所と確認できた契約の範囲を示します。不一致は参照した契約（Javadocまたは補助コメント）との不一致であり、
 実装の業務バグとは限りません。詳細は [Javadocモード](docs/javadoc-mode.md) を参照してください。
 
 ## プロジェクト固有ルール（任意）

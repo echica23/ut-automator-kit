@@ -265,3 +265,32 @@ Mavenの回帰試験は再実行していない。以前の実行結果を今回
 更新文書のMarkdown参照リンク、改行、差分の空白検査は成功。
 これは判断規則の文書レビューであり、Copilot等での自由形式コメントの
 読解精度・矛盾検出率を実測したものではない。導入先での試運転は今後の確認事項。
+
+## ファイル名glob（-G）の確認（2026-10-16）
+
+AI側の対象解決プロンプトを変更。Java/PowerShellランナー、配布JAR、
+設定スキーマは未変更。Mavenの回帰試験は再実行していない。
+
+次の仮想候補を使って、対象選択の規則と実行指示の整合性を文書レビューした。
+com.example.OrderServiceImpl、com.example.sub.UserServiceImpl、
+com.example.ServiceImpl、com.example.OrderService、
+com.example.lowerServiceimpl、com.other.OtherServiceImpl。
+各クラスは標準配置の同名.javaファイルに存在する前提。
+
+| 指定/条件 | 期待する選択・処理 |
+| --- | --- |
+| com.example.*、-G "*ServiceImpl.java" | OrderServiceImpl、sub.UserServiceImpl、ServiceImplの3件 |
+| 同上、UserServiceImplをRulesで除外 | 最終2件。候補/一致/除外/最終を区別 |
+| com.example.*、-G "*serviceimpl.java" | 0件。大小文字を混同しない |
+| com.example.*、-G "OrderServiceImpl.jav?" | OrderServiceImplのみ。?は1文字 |
+| com.example.*、-G "OrderServiceImpl" | 0件。拡張子を省略して補完しない |
+| com.example.OrderService、-G "*ServiceImpl.java" | 0件。完全修飾名指定でも条件を緩めない |
+| -G省略 | 既存のcom.example配下の5件からRules等を適用 |
+| "**/ServiceImpl.java"、空値、重複-G | 入力エラー。prepareしない |
+| 一致対象をRulesですべて除外 | prepare/executeせず未実行・未計測 |
+| 探索中のアクセス失敗 | 0件と断定せず探索不能/不完全を報告 |
+
+3モード、-D/-J双方の構文、0件時の早期終了、既存Rules・保護・FAIL原則、
+レポートの対象範囲を照合し矛盾なし。更新Markdownのリンクと差分空白検査も成功。
+これは規則の文書レビューであり、実プロジェクトに対する生成・実行試験や
+Copilotの対象解決精度の実測ではない。

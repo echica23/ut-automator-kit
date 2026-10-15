@@ -102,3 +102,9 @@ mvn -f runner/pom.xml clean verify
 Gsonのライセンスと出典はdist/THIRD-PARTY-NOTICES.mdとJAR内META-INF/licenses/に保持する。
 Java版の公開ユニットテストに加え、同じMaven fixtureを両方式で実行して
 成功・FAIL・ERROR・未計測・保護・Rules・Javadoc・引数境界を比較する。
+## 対象フィルターとの境界
+
+自然言語utの-GはAIがprepare前に解決する。
+--targets/-Targetsには具体的な完全修飾名だけを渡し、-Gやglobを渡さない。
+run.json.targetsは最終対象。元の要求範囲とフィルターはreport.mdに記録する。
+[対象選択の仕様](target-selection.md)を参照。

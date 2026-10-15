@@ -174,3 +174,42 @@ checks.json、additional-checks.json、javadoc-checks.json、javadoc-runs.json�
 各runのUT・report.md・XML・ハッシュ・ログ。合計93チェック成功。
 再検証は新しいWorkspaceに3スクリプトをコピーして順に実行する。
 既存検証fixtureとローカル環境を使用するテスト環境専用スクリプトである。
+
+## PowerShell 5.1／7両対応の検証（2026-10-15）
+
+Windows PowerShell 5.1.26100.9711とPowerShell 7.6.5で、同じ実行スクリプトを検証した。
+Java 21.0.11 / Maven 3.9.9 / JaCoCo 0.8.12等は既存fixtureを維持した。
+
+各ホストで既存51項目・レポート25項目・Javadoc17項目、計93項目が成功（合計186）。
+coverage35件成功、spec/review各48件中42成功・6FAILを維持。
+Javadoc fixture各2件中1成功・1FAIL、通常UT1件成功。
+保護機構、Rules、-D/-J、起動失敗、全件skip、再利用拒否、XML本文・時間計測も維持した。
+
+追加確認は各ホスト2項目、合計4項目成功。
+- 日本語・空白を含むプロジェクトパス、UTF-8 BOMなしの設定JSON・規則・Java、
+  日本語のテスト名/標準出力、空白入りASCII出力先でテスト1件成功、JaCoCo生成、保護対象変更なし。
+- 診断stderrを出して終了コード0を返すローカルcmd fixture。
+  test/coverage終了コードは0、起動例外なし、stderrをログに保存。
+  実テスト/XMLを作らないfixtureなので全体は正しくEXECUTION_ERROR・終了コード2。
+
+最終チェックは計190項目成功。途中で見つかった.NET Framework側の外部DTD参照、
+ネイティブ終了コードのスコープ差、XML改行差を修正して最終セットを再実行した。
+PowerShellスクリプトはBOM付き、JSONはUTF-8 BOMなしで保存する。
+
+検証証跡: テスト環境 powershell-validation-20261015-140505/。
+powershell/とpwsh/以下に、実際の子プロセスホストを切り替えた3検証スクリプトと
+checks.json / additional-checks.json / javadoc-checks.json、各runの証跡を保存。
+検証ハーネス自体はPowerShell 7で実行し、キット本体を対象ホストで起動した。
+Validate-Unicode.ps1、unicode-checks.json、stderr-checks.jsonも同フォルダに保存。
+
+このPCの5.1は実行ポリシー未設定によるRestricted既定値だったため、
+組織ポリシー未指定を確認し、検証子プロセスのみRemoteSignedで起動した。
+永続的な実行ポリシーは変更していない。キットは実行ポリシーを変更しない。
+
+制約:
+- 日本語の出力先では、このMaven/Surefire/JDKの組合せでJaCoCoデータの保存先が
+  文字化けし未計測となった。JSON/Java/テスト本文は正常。ASCIIの出力先へ切り替えると
+  同じ日本語プロジェクトで両ホストとも成功した。導入手順に切り分けを記載した。
+- Java 25の実行環境はこのPCにない。0.8.14での正式対応は公式リリースを根拠とする
+  導入方針であり、Java 25・対象企業プロジェクトの組合せを実動検証したものではない。
+- Mockito等を含む実際の依存構成、社内取得可否、実行ポリシーは導入先で確認する。

@@ -44,3 +44,12 @@
 既存JUnit5/Mockito依存があるなら二重追加しません。既存JaCoCoがあるなら二重エージェントを避けて既存設定を統合します。Surefireに独自argLineがある場合は、JaCoCoが設定するargLineを消さない設定が必要です。Java版とJaCoCo/Mockitoの対応は対象環境で確認してください。
 
 試運転ではbuild/surefire-reports、build/site/jacoco/jacoco.xml、build/jacoco.execが実行フォルダ内に作成されることを確認します。非標準レポート位置や他のプラグインがソース追加する構成は、このまま適用せず導入設計を修正する必要があります。
+
+## Java版に応じた選定
+
+上記0.8.12はJava 21で検証した既存例であり、Java 25用ではありません。
+Java 25はJaCoCo 0.8.14から正式対応しています。
+[公式リリース](https://github.com/jacoco/jacoco/releases/tag/v0.8.14)
+Java 25への導入案では0.8.14以降の対応版を選び、既存の依存管理・社内取得可否を確認してください。
+Maven実行JDK、コンパイル対象、テストJVMを区別し、Mockito/Byte Buddy等も含め試運転します。
+テンプレート全体のコピーや、既存JaCoCoへのエージェント二重追加は行いません。

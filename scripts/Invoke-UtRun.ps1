@@ -1,3 +1,4 @@
+﻿#requires -Version 5.1
 <#
 .SYNOPSIS
 AIが生成したUTを既存UTから分離して実行し、MavenとJaCoCoの結果を集計する。
@@ -7,7 +8,7 @@ execute: AIがjava/へ配置したUTを実行し、XMLから結果を集計す�
 UT生成、仕様判断、原因分析、最終レポートはAIが担当する。Mavenの所要時間はこのスクリプトで計測する。
 詳しい引数・成果物・終了条件は ../docs/script-spec.md を参照。
 .NOTES
-PowerShell 7用。設定済みで信頼できるMavenプロジェクトを前提とする。
+Windows PowerShell 5.1 / PowerShell 7用。設定済みで信頼できるMavenプロジェクトを前提とする。
 実行済みフォルダは再利用しない。再試行はprepareで新しい実行IDを作る。
 #>
 param(
@@ -27,9 +28,38 @@ $ErrorActionPreference = 'Stop'
 
 # 確認記録をUTF-8のJSONで出力する。ディレクトリ作成は呼出し側が行う。
 function Write-Json($Object, $Path) {
-    $Object | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath $Path -Encoding utf8
+    $json = ConvertTo-Json -InputObject $Object -Depth 15
+    [IO.File]::WriteAllText($Path, $json, [Text.UTF8Encoding]::new($false))
 }
 
+# 5.1ではネイティブstderrがErrorRecordになる。stderrの有無で中断せず終了コードを評価する。
+# PowerShellのエラー制御は関数内だけ変更する。ログはUTF-8、JSON/XMLとは別の診断情報。
+function Invoke-MavenLog($Command, $Arguments, $LogPath) {
+    $resolved = Get-Command $Command -ErrorAction Stop
+    $ErrorActionPreference = 'Continue'
+    $PSNativeCommandUseErrorActionPreference = $false
+    $global:LASTEXITCODE = -1
+    & $resolved.Source @Arguments 2>&1 |
+        ForEach-Object { $_.ToString() } |
+        Out-File -LiteralPath $LogPath -Encoding utf8 -ErrorAction Stop
+    return $global:LASTEXITCODE
+}
+# XML宣言の文字コードと改行正規化を両ホストで揃える。外部DTDは読み込まない。
+function Read-Xml($Path) {
+    $options = New-Object System.Xml.XmlReaderSettings
+    $options.DtdProcessing = [System.Xml.DtdProcessing]::Ignore
+    $options.XmlResolver = $null
+    $reader = [System.Xml.XmlReader]::Create($Path, $options)
+    try {
+        $document = New-Object System.Xml.XmlDocument
+        $document.XmlResolver = $null
+        $document.Load($reader)
+        return ,$document
+    }
+    finally {
+        $reader.Dispose()
+    }
+}
 # 相対パスを基準ディレクトリから絶対化する補助関数。
 
 # 名前にUnderとあるが、基準配下への制限は行わない。出力先の制限はprepareで確認する。
@@ -63,7 +93,7 @@ function Get-Snapshot($Root, $Paths) {
 # 共通の事前確認: プロジェクト、設定形式、Maven導入状態を確認する。
 $root = (Resolve-Path -LiteralPath $Project).Path
 $configPath = Resolve-Under $root $Config
-$settings = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+$settings = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($settings.schemaVersion -ne 1) {
     throw 'Unsupported config schema.'
 }
@@ -72,7 +102,7 @@ if (!(Test-Path -LiteralPath (Join-Path $root 'pom.xml'))) {
 }
 
 # 初版では対象モジュールのPOMに明示されたプロパティ参照を要求する。親POMの有効設定は解決しない。
-[xml]$pom = Get-Content -LiteralPath (Join-Path $root 'pom.xml') -Raw
+[xml]$pom = Read-Xml (Join-Path $root 'pom.xml')
 if ([string]$pom.project.build.testSourceDirectory -ne '${ut.sources}' -or
     [string]$pom.project.build.directory -ne '${ut.build}') {
     throw 'Setup incomplete: build.testSourceDirectory=${ut.sources} and build.directory=${ut.build} required.'
@@ -214,7 +244,7 @@ if (!$Run) {
     throw 'Run directory required.'
 }
 $runPath = (Resolve-Path -LiteralPath $Run).Path
-$manifest = Get-Content -LiteralPath (Join-Path $runPath 'run.json') -Raw | ConvertFrom-Json
+$manifest = Get-Content -LiteralPath (Join-Path $runPath 'run.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($manifest.project -ne $root -or
     $manifest.config -ne $configPath -or
     $manifest.runPath -ne $runPath) {
@@ -223,7 +253,7 @@ if ($manifest.project -ne $root -or
 if (Test-Path -LiteralPath (Join-Path $runPath 'execution-started.json')) {
     throw 'Run already used. Prepare a new run; never reuse old coverage.'
 }
-$before = Get-Content -LiteralPath (Join-Path $runPath 'before-hashes.json') -Raw | ConvertFrom-Json
+$before = Get-Content -LiteralPath (Join-Path $runPath 'before-hashes.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 
 # 基準時点との差分を返す。書込みを禁止する仕組みではなく、変更を検出して報告する仕組み。
 function Compare-Protected {
@@ -256,7 +286,7 @@ if (!$testFiles.Count) {
 }
 $testNames = @()
 foreach ($file in $testFiles) {
-    $content = Get-Content -LiteralPath $file.FullName -Raw
+    $content = Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8
     if ($content -match '@(?:ParameterizedTest|Test|RepeatedTest|TestFactory|TestTemplate)\b') {
         if ($file.BaseName -notmatch '^.+Test$') {
             throw 'Generated test classes must end in Test.'
@@ -323,8 +353,7 @@ Push-Location $root
 try {
     $timer = [Diagnostics.Stopwatch]::StartNew()
     try {
-        & $maven @argsBase test *> (Join-Path $runPath 'test.log')
-        $testExit = $LASTEXITCODE
+        $testExit = Invoke-MavenLog $maven ($argsBase + @('test')) (Join-Path $runPath 'test.log')
     }
     finally {
         $timer.Stop()
@@ -332,8 +361,7 @@ try {
     }
     $timer = [Diagnostics.Stopwatch]::StartNew()
     try {
-        & $maven @argsBase jacoco:report *> (Join-Path $runPath 'coverage.log')
-        $coverageExit = $LASTEXITCODE
+        $coverageExit = Invoke-MavenLog $maven ($argsBase + @('jacoco:report')) (Join-Path $runPath 'coverage.log')
     }
     finally {
         $timer.Stop()
@@ -366,7 +394,7 @@ $unexpected = @()
 $surefire = Join-Path $build 'surefire-reports'
 if (Test-Path -LiteralPath $surefire) {
     foreach ($file in Get-ChildItem -LiteralPath $surefire -Filter 'TEST-*.xml') {
-        [xml]$xml = Get-Content -LiteralPath $file.FullName -Raw
+        [xml]$xml = Read-Xml $file.FullName
         $suite = $xml.testsuite
         if ($suite.name -notin $testNames) {
             $unexpected += $suite.name
@@ -412,7 +440,7 @@ $coverage = @()
 $missing = @()
 $xmlPath = Join-Path $build 'site/jacoco/jacoco.xml'
 if (Test-Path -LiteralPath $xmlPath) {
-    [xml]$jacoco = Get-Content -LiteralPath $xmlPath -Raw
+    [xml]$jacoco = Read-Xml $xmlPath
     foreach ($target in $manifest.targets) {
         $class = @($jacoco.report.package.class | Where-Object name -eq $target.Replace('.','/'))
         if (!$class.Count) {

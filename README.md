@@ -39,7 +39,7 @@ FAIL・未確定・未カバーなどを個別に説明します。reviewでは�
 ## 初版の対象
 
 - 指示書を読み、対象ファイルを編集し、PowerShellを実行できるAIエージェントを使用。特定製品の内部ログには依存しません。職場でのCopilot利用を想定していますが、この変更のCopilot上での動作・速度確認は別途必要です。
-- Windows PowerShell 7、Java（対象プロジェクトが要求する版）、Maven 3.9系、JUnit5、Mockito、JaCoCo。
+- Windows PowerShell 5.1またはPowerShell 7、Java（対象プロジェクトが要求する版）、Maven 3.9系、JUnit5、Mockito、JaCoCo。
 - 単一Mavenモジュール、または単独でビルドできるサブモジュール。サブモジュールの場合はそのディレクトリを `-P` に指定。
 - 標準の `src/main/java` を使用するJavaクラス。既存UTは保持し、通常実行と生成UT実行を分離します。
 - Gradle、JUnit4だけの環境、リアクタ全体の同時ビルドが必要な依存関係、非標準ソース配置、Kotlinは初版で未対応。導入時に検出・報告し、黙って設定を置き換えません。
@@ -195,3 +195,7 @@ report.mdに参照箇所と確認できた契約の範囲を示します。不�
 - reviewも本番コードを直さず、修正案だけを出す。
 
 詳細は [設計](docs/design.md)、[Maven導入テンプレート](templates/maven-integration.md)、[検証記録](docs/validation.md) を参照してください。
+
+実行ホストは導入時に選び、Windows PowerShell 5.1／PowerShell 7のどちらも利用できます。
+Java 25ではJaCoCo 0.8.14以降の対応版を候補とします。テンプレートの0.8.12はJava 21の検証例です。
+既存依存との整合・試運転は[導入手順](prompts/setup.md)と[Mavenテンプレート](templates/maven-integration.md)を参照してください。

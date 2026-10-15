@@ -55,3 +55,11 @@ spec/reviewは-D資料または-J契約を明示選択し、併用・自動切�
 ケース単位で期待値を確定し、不足はSPEC_UNKNOWNとして部分継続する。
 実装やProject Rulesで補完しない。根拠と保証範囲はreport.mdに集約する。
 選択・参照・保護・互換性の詳細は[Javadocモード](javadoc-mode.md)を参照。
+
+## PowerShell 5.1／7対応
+
+実行基盤を両ホストで共通化する。スクリプトはUTF-8 BOM付き、
+JSON/生成Javaの読込みはUTF-8明示、JSON出力はBOMなしUTF-8。
+XMLは文字コード宣言に従い、改行正規化と外部DTD参照の抑止を共通化する。
+Mavenのstderrと終了コードを分けて扱い、正当なFAIL後もJaCoCoを実行する。
+Java/JaCoCo等の版選定は導入時に行い、UT実行中の自動更新はしない。

@@ -10,7 +10,7 @@ AIが担当する対象選定、ワイルドカード展開、UT生成、仕様�
 
 ## 2. 前提
 
-PowerShell 7、設定済みのMavenモジュール、Java、JUnit5、Mockito、JaCoCoを使用する。標準ソースルートsrc/main/java、単独モジュール、テスト結果build/surefire-reports、計測結果build/site/jacoco/jacoco.xmlを前提とする。
+Windows PowerShell 5.1またはPowerShell 7、設定済みのMavenモジュール、Java、JUnit5、Mockito、JaCoCoを使用する。標準ソースルートsrc/main/java、単独モジュール、テスト結果build/surefire-reports、計測結果build/site/jacoco/jacoco.xmlを前提とする。
 
 対象モジュールのpom.xmlに以下が直接記載されていることを検査する。
 
@@ -174,8 +174,8 @@ Maven呼出しで例外が出た場合、未実施の終了コードは-1。test
 - 予期しないsuiteは検出するが、予定UTクラスのすべてが実行されたかの完全な集合一致や、全固定IDの存在までは検査しない。AIが実測ケースを照合する。
 - 内部クラス・集約JaCoCo・親POMだけの導入設定・独自ソースルートには対応しない。親や他モジュールの保護ファイルは必要ならprotectedPathsに追加する。
 - 全件skipは拒否するが、一部skipは件数として残す。許容できるかはAI/利用者が判断する。
-- JAVA_HOMEの復元はMaven呼出し区間のfinallyで行う。それ以前のマーカー書込み等でエラーになった場合の復元は保証しないため、独立したpwshプロセスでの呼出しが望ましい。
-- 非0ネイティブ終了を例外化するPowerShell設定を利用すると挙動に影響する。検証時はpwsh -NoProfileで実行している。
+- JAVA_HOMEの復元はMaven呼出し区間のfinallyで行う。それ以前のマーカー書込み等でエラーになった場合の復元は保証しないため、独立したpowershell/pwshプロセスでの呼出しが望ましい。
+- Maven呼出し関数内ではネイティブstderrで停止せず終了コードを評価する。ホストは-NoProfileで起動する。
 
 ## 11. 検証・保守
 
@@ -186,3 +186,13 @@ Maven呼出しで例外が出た場合、未実施の終了コードは-1。test
 Javadoc選択時のspecはnull、specSourceはjavadoc。文書指定はdocument、coverageはimplementation。
 スクリプトはJavadocの有無や契約の意味を判定しない。旧manifestは引き続き実行可能。
 参照の選択と旧specSource省略時の解釈は[Javadocモード](javadoc-mode.md)を参照。
+
+## PowerShellホストと文字コード
+
+Windows PowerShell 5.1 / PowerShell 7で使用する。導入時に利用可能なホストを確認し、
+選択した実行ファイルを-NoProfile -Fileで起動する。既定ターミナルが5.1でも導入不可ではない。
+.ps1自身はUTF-8 BOM付き、JSON出力はUTF-8 BOMなし。JSON/Javaの読込みはUTF-8を明示する。
+XMLはXmlReader経由でBOM/XML宣言に従って読み、改行を正規化する。DTDは無視し外部リソースを解決しない。
+Mavenのstderrは5.1でErrorRecordになる場合も文字列としてUTF-8ログへ保存し、
+stderrの出力だけで失敗とせず終了コードと実測結果を評価する。
+ネイティブ出力の元の文字コードはMaven/JDK/端末に依存するため、導入時に日本語ログを確認する。

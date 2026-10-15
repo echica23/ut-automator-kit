@@ -31,3 +31,31 @@ rules/project.example.mdを参考に導入先のrules/project.md等へ記載し�
 特定エージェントの内部ログやトークン取得は導入条件にしない。ファイル操作とPowerShell/Maven実行の可否を確認する。試運転ではreport.mdへの説明集約、成功ケースの集計、問題の個別記載、Maven時間を確認する。
 
 仕様資料が用意できない場合はspec/reviewの-Jを案内できる。-Dとの併用や暗黙の代替はせず、docs/javadoc-mode.mdの契約参照・SPEC_UNKNOWN・保証範囲に従う。新たな設定やJavadocの自動追記は不要。
+
+## 実行環境・Java互換性の確認
+
+現在のシェルだけで判断せず、$PSVersionTableとGet-Command powershell,pwshで利用可能な実行ファイルを確認する。
+Windows PowerShell 5.1またはPowerShell 7を使用できる。選んだ実行ファイルの絶対パスと版を導入記録に残し、
+実行時はそのホストを-NoProfile -Fileで明示する。既定ターミナル変更やPowerShell追加導入は不要。
+スクリプトはUTF-8 BOM付きで保持する。設定JSON・生成JavaはUTF-8を使用する。
+実行ポリシー等で起動できない場合は理由と必要な環境対応を提示し、勝手にポリシーを変更しない。
+
+Java互換性は次を分けて調査する。
+- java -versionとmvn -version（設定したJAVA_HOMEで実行）による実際のJDK。
+- POM/親POM/プロファイルのcompiler release/source/target、ToolchainsとSurefireのJVM指定。
+- 実効的なJaCoCoの版と、JUnit・Surefire・Mockito/Byte Buddy等の版。
+
+Java 25の正式対応はJaCoCo 0.8.14から（公式リリース参照）。
+https://github.com/jacoco/jacoco/releases/tag/v0.8.14
+Java 25では0.8.14以降の対応版を候補とし、既存設定・社内取得可能な版との整合を確認する。
+テンプレートの旧版を無条件にコピーしない。未知のJava版も公式対応情報を確認する。
+ネットワークや社内リポジトリ制限で確認できなければ「確認不能」と「非対応」を区別し、
+不足情報・候補版・必要な変更・試運転方法を提示する。
+
+JaCoCoだけで環境全体の互換性を保証しない。通常UTと生成UTの小規模試運転で、
+Mock利用、正当なFAIL後の計測、Surefire XML・JaCoCo HTML/XML/execの生成を確認する。
+依存更新は導入時の変更案に含める。UT実行中に依存や本番Java版を勝手に変更しない。
+
+日本語を含む出力先では、Maven/Surefire/JDKの組合せによりJaCoCoのdestfileが文字化けする場合がある。
+試運転でexecとHTML/XMLが指定先にない場合はログと実際の保存先を確認し、英数字の出力先を提案する。
+テスト成功だけで計測成功とは報告しない。出力先変更はoutputRoot/-Oを使い、既存結果を移動・削除しない。

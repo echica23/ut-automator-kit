@@ -94,6 +94,17 @@ function Get-Snapshot($Root, $Paths) {
 $root = (Resolve-Path -LiteralPath $Project).Path
 $configPath = Resolve-Under $root $Config
 $settings = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+# 設定省略は既存環境との互換性のためPowerShell。別方式への自動切替はしない。
+$runnerName = 'powershell'
+if ($settings.PSObject.Properties.Name -contains 'runner') {
+    if ($settings.runner -isnot [string] -or $settings.runner -cnotin @('java','powershell')) {
+        throw 'runner must be java or powershell.'
+    }
+    $runnerName = $settings.runner
+}
+if ($runnerName -ne 'powershell') {
+    throw 'Runner mismatch: configured runner is java; no automatic fallback.'
+}
 if ($settings.schemaVersion -ne 1) {
     throw 'Unsupported config schema.'
 }
@@ -213,6 +224,7 @@ if ($Action -eq 'prepare') {
     Write-Json $snapshot (Join-Path $runPath 'before-hashes.json')
     Write-Json ([ordered]@{
             schemaVersion = 1
+            runner = 'powershell'
             project = $root
             config = $configPath
             mode = $Mode
@@ -249,6 +261,11 @@ if ($manifest.project -ne $root -or
     $manifest.config -ne $configPath -or
     $manifest.runPath -ne $runPath) {
     throw 'Run/project/config mismatch.'
+}
+if ($manifest.PSObject.Properties.Name -contains 'runner') {
+    if ($manifest.runner -cne 'powershell') {
+        throw 'Run runner mismatch; prepare a new run using the configured runner.'
+    }
 }
 if (Test-Path -LiteralPath (Join-Path $runPath 'execution-started.json')) {
     throw 'Run already used. Prepare a new run; never reuse old coverage.'

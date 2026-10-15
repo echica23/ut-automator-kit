@@ -1,10 +1,10 @@
 # UT自動化キット
 
-既存Javaプロジェクトで、AIによるUT生成・Maven実行・JaCoCo計測・仕様レビューを行うキットです。自然言語の `ut` コマンドをAIが解釈し、付属スクリプトで結果を集計します。AIモデルのAPI呼び出しや、OSの `ut` コマンドを提供するものではありません。
+既存Javaプロジェクトで、AIによるUT生成・Maven実行・JaCoCo計測・仕様レビューを行うキットです。自然言語の `ut` コマンドをAIが解釈し、選択した実行基盤（JavaまたはPowerShell）で結果を集計します。AIモデルのAPI呼び出しや、OSの `ut` コマンドを提供するものではありません。
 
 ## 最初に知っておくファイル
 
-このキットには、AIへ渡す指示書、設定のひな形、AIが内部で使う補助スクリプトが入っています。「キットのフォルダ」と「UTを適用するJavaプロジェクトのフォルダ」は別です。
+このキットには、AIへ渡す指示書、設定のひな形、AIが内部で使う実行基盤が入っています。「キットのフォルダ」と「UTを適用するJavaプロジェクトのフォルダ」は別です。
 
 | ファイル | 置き場所・用意する人 | 役割と使うタイミング |
 | --- | --- | --- |
@@ -14,6 +14,8 @@
 | [rules/project.example.md](rules/project.example.md) | キットに同梱 | **任意のテスト方針のひな形**。導入先の命名・Mock・レビュー規則等を用意する |
 | `ut-kit.json` | 導入時にAIが対象Javaプロジェクトのルートへ作成 | **そのプロジェクト専用の設定**。使用するMaven・Java・出力先などを記録し、毎回の実行で読む |
 | `ut-kit-setup.md` | 導入時にAIが対象Javaプロジェクトのルートへ作成 | **導入結果の記録**。変更内容・検証結果・未対応事項を人間が確認する |
+| [dist/ut-automator-runner.jar](dist/ut-automator-runner.jar) | キットに同梱 | **Java版の実行補助**。新規導入の既定。依存同梱で利用者のビルドは不要 |
+| [docs/runner-spec.md](docs/runner-spec.md) | キットに同梱 | **方式選択と共通仕様**。Java/PowerShellの使い分け・互換性 |
 | [scripts/Invoke-UtRun.ps1](scripts/Invoke-UtRun.ps1) | キットに同梱 | **AI用の実行補助**。フォルダ作成・Maven実行・結果集計を共通化する。通常は人間が直接操作しない |
 | [docs/script-spec.md](docs/script-spec.md) | キットに同梱 | **補助スクリプトの仕様書**。仕組みの確認・保守・トラブル調査で読む |
 
@@ -38,8 +40,8 @@ FAIL・未確定・未カバーなどを個別に説明します。reviewでは�
 
 ## 初版の対象
 
-- 指示書を読み、対象ファイルを編集し、PowerShellを実行できるAIエージェントを使用。特定製品の内部ログには依存しません。職場でのCopilot利用を想定していますが、この変更のCopilot上での動作・速度確認は別途必要です。
-- Windows PowerShell 5.1またはPowerShell 7、Java（対象プロジェクトが要求する版）、Maven 3.9系、JUnit5、Mockito、JaCoCo。
+- 指示書を読み、対象ファイルを編集し、選択した実行基盤とMavenを起動できるAIエージェントを使用。特定製品の内部ログには依存しません。職場でのCopilot利用を想定していますが、この変更のCopilot上での動作・速度確認は別途必要です。
+- Java版はJava 11以上、PowerShell版はWindows PowerShell 5.1またはPowerShell 7。対象プロジェクト用Java、Maven 3.9系、JUnit5、Mockito、JaCoCo。
 - 単一Mavenモジュール、または単独でビルドできるサブモジュール。サブモジュールの場合はそのディレクトリを `-P` に指定。
 - 標準の `src/main/java` を使用するJavaクラス。既存UTは保持し、通常実行と生成UT実行を分離します。
 - Gradle、JUnit4だけの環境、リアクタ全体の同時ビルドが必要な依存関係、非標準ソース配置、Kotlinは初版で未対応。導入時に検出・報告し、黙って設定を置き換えません。
@@ -107,7 +109,7 @@ ut -P "C:\projects\my-app" -review com.example.MyService -D docs/ -O "D:\ut-resu
 
 coverageも自己比較テストを許しません。実装を解析して入力と固定期待値を事前に決め、本番コードの実測戻り値を期待値生成に使いません。
 
-`com.example.*` を指定すると、AIが `com.example` とその下位パッケージから対象を探し、実行前に具体的なクラス名の一覧を報告します。通常は報告後にそのまま進み、同名クラスなどで対象が特定できない場合に確認します。スクリプトへ渡すのは、この解決済みのクラス名です。インターフェース・enum等を含めた対象範囲は一覧で明示し、検証できない型や未計測対象を黙って除外して100%と報告しません。
+`com.example.*` を指定すると、AIが `com.example` とその下位パッケージから対象を探し、実行前に具体的なクラス名の一覧を報告します。通常は報告後にそのまま進み、同名クラスなどで対象が特定できない場合に確認します。実行基盤へ渡すのは、この解決済みのクラス名です。インターフェース・enum等を含めた対象範囲は一覧で明示し、検証できない型や未計測対象を黙って除外して100%と報告しません。
 
 導入時には、生成UTを分離して動かすために必要な `pom.xml` 等の変更を行います。一方、導入後の `ut` 実行中は、設定済みの仕組みを使い、テストを通すためにビルド設定や依存ライブラリを書き換えません。出力先をコマンド引数で切り替えることは可能です。設定不足が判明した場合は、導入設定の見直しが必要であることを報告します。
 
@@ -138,11 +140,11 @@ report.mdに参照箇所と確認できた契約の範囲を示します。不�
 ```text
 <outputRoot>/<coverage|spec|review>/<日時-一意ID>/
   run.json                 # 対象・仕様・実行条件
-  project-rules.json       # スクリプト：登録ルールのパスとハッシュ
+  project-rules.json       # 実行基盤：登録ルールのパスとハッシュ
   java/                    # この実行の生成UT
   build/                   # Maven出力、Surefire、JaCoCo
   test.log / coverage.log
-  summary.json             # スクリプトによる実測集計
+  summary.json             # 実行基盤による実測集計
   case-results.json        # テスト結果・固定IDを含む出力
   before-hashes.json / ut-hashes.json / change-check.json
   report.md                # AIによる説明を含む最終レポート
@@ -150,39 +152,36 @@ report.mdに参照箇所と確認できた契約の範囲を示します。不�
 
 毎回新しいフォルダを作り、既存のUT・実行結果を上書きしません。再試行も新しい実行IDを作成し、生成UTを必要に応じコピーして修正します。specとreviewの実行結果は独立しています。デモのsamplesへの自動コピーやREADMEの自動書換えはしません。Gitへ含める成果物の選択と、コミット・pushを含むすべてのGit操作は、人間が手動で行います。AIは実行しません。
 
-## スクリプトの役割
+## 実行基盤の選択と役割
 
-付属の [Invoke-UtRun.ps1](scripts/Invoke-UtRun.ps1) は、**AIが作成したUTを既存UTから分離して実行し、結果を機械的に集計するための補助スクリプト**です。毎回のフォルダ作成・Maven起動・XML集計を共通化し、古い結果の取り違えや件数の読み間違いを減らします。
+新規導入ではut-kit.jsonに `"runner": "java"` を設定し、同梱JARを使います。
+PowerShell版を使う場合は `"runner": "powershell"`。項目省略の既存環境はPowerShellのままです。
+コマンドごとの指定は不要で、失敗時に他方式へ自動で切り替えることはありません。
+方式変更は導入設定の変更として行い、新しい実行IDから使用します。
 
-| 担当 | 行うこと |
-| --- | --- |
-| AI | 対象を解決する、仕様・実装を読む、UTを書く、失敗を分析する、最終レポートを書く |
-| スクリプト | 実行フォルダを作る、保護対象のハッシュを記録・比較する、MavenとJaCoCoを実行する、XMLから結果を集計する |
+AIは対象・仕様の読解、UT生成、失敗分析、report.mdを担当します。
+実行基盤はフォルダ作成、ハッシュ照合、Maven実行、XML集計と時間計測を担当します。
+通常は利用者が直接操作する必要はありません。
 
-通常、利用者が入力するのは上記の `ut` コマンドです。スクリプトは、AIが毎回ディレクトリ操作や集計方法を考え直さず、同じ手順で処理するための内部用部品です。利用者による直接の実行・編集は通常不要で、保守やトラブル調査時に扱います。AIが内部でスクリプトを次のように使います。
+1. prepare：新しい実行フォルダと変更確認の基準値を作成。
+2. AI：java/へUTを生成。
+3. execute：生成UTを実行し、件数・カバレッジ・変更確認を集計。
+4. AI：report.mdを作成。
 
-1. `prepare`：新しい実行フォルダと変更確認の基準値を作成する。
-2. AI：そのフォルダの `java/` にUTを作成する。
-3. `execute`：生成UTを実行し、結果・カバレッジ・変更確認を集計する。
-4. AI：集計と仕様・実装を照合し、`report.md` を作成する。
+Java版の直接実行例（保守・調査用）：
 
-スクリプト自体はUTを生成せず、仕様適合や失敗原因も判断しません。全件スキップや0件実行は成功として扱いません。MavenがテストFAILで終了しても、通常は続いてJaCoCoを生成します。
-
-### 動作確認・トラブル調査用の直接実行例
-
-通常の利用では、これらを手動で実行する必要はありません。スクリプトには `ut` と異なる引数名を使います。
-
-```powershell
-# 出力は新しい実行フォルダの絶対パス。UTはまだ生成されない。
-& "C:\demo\ut-automator-kit\scripts\Invoke-UtRun.ps1" -Action prepare -Project "C:\projects\my-app" -Mode spec -Targets com.example.MyService -Spec docs/spec.md
-
-# AIが作成したUTをjava/に置いた後、prepareが返したパスを指定する。
-& "C:\demo\ut-automator-kit\scripts\Invoke-UtRun.ps1" -Action execute -Project "C:\projects\my-app" -Run "<作成された実行フォルダ>"
+```text
+java -jar dist/ut-automator-runner.jar prepare --project "C:\projects\my-app" --mode spec --targets com.example.MyService --spec docs/
+java -jar dist/ut-automator-runner.jar execute --project "C:\projects\my-app" --run "<prepareで得たパス>"
 ```
 
-集計完了時の終了コードは0=テスト成功かつ計測成功、1=テストFAIL/ERROR、2=実行不能・未計測等です。事前検査のエラーなどでは集計前に停止し、`summary.json` が作られない場合もあります。終了コードだけで原因を判断せず、エラー出力・ログ・作成されていれば `summary.json` を確認してください。
+実際は導入時に確認したjava.exeとキットJARの絶対パスを使用します。
+補助ツール用Javaと、Maven用のjavaHomeは別に選択できます。
+Java版の起動に.ps1は不要です。Maven自身の依存取得は従来どおり必要です。
 
-引数、設定項目、処理順、成果物、終了条件、現状の制約は [スクリプト仕様](docs/script-spec.md) にまとめています。
+終了コードは0=テスト・計測成功、1=テストFAIL/ERROR、2=実行不能・未計測等。
+先行検査で停止するとsummary.jsonがない場合があります。
+詳細は[実行基盤の仕様](docs/runner-spec.md)、[PowerShell版の仕様](docs/script-spec.md)を参照してください。
 
 ## 既存プロジェクトを守るルール
 
@@ -196,6 +195,6 @@ report.mdに参照箇所と確認できた契約の範囲を示します。不�
 
 詳細は [設計](docs/design.md)、[Maven導入テンプレート](templates/maven-integration.md)、[検証記録](docs/validation.md) を参照してください。
 
-実行ホストは導入時に選び、Windows PowerShell 5.1／PowerShell 7のどちらも利用できます。
+実行方式と利用するJavaまたはPowerShellの実行ファイルは導入時に選びます。
 Java 25ではJaCoCo 0.8.14以降の対応版を候補とします。テンプレートの0.8.12はJava 21の検証例です。
 既存依存との整合・試運転は[導入手順](prompts/setup.md)と[Mavenテンプレート](templates/maven-integration.md)を参照してください。

@@ -14,7 +14,7 @@ Git操作が必要な場面では、AIは変更ファイル・検証結果・必
 
 templates/maven-integration.mdを参考に、明示指定時だけ有効なut-automatorプロファイルを追加する。通常UTのソースルート/出力ルートをプロパティ化し、既定値は従来の値のままにする。生成UT実行時だけut.sources、ut.buildが置き換わる。既存プロファイルとの競合、Surefire argLineとJaCoCoエージェントの重複、スキップ設定を確認する。
 
-ut-kit.jsonを作り、Java/Maven/出力先/追加保護対象を記録する。MavenがPATHにない場合はユーザーが指定した保存先を探す。グローバルGitやMaven設定、settings.xmlを勝手に変更しない。
+ut-kit.jsonを作り、runner/Java/Maven/出力先/追加保護対象を記録する。新規導入のrunnerはjavaを既定とし、明示的にPowerShellを選ぶ場合はpowershellとする。既存設定でrunner省略ならPowerShellを維持し、勝手に切り替えない。MavenがPATHにない場合はユーザーが指定した保存先を探す。グローバルGitやMaven設定、settings.xmlを勝手に変更しない。
 
 Project Rulesは任意。キットのdocs/project-rules.mdを読み、利用者が指定したテスト方針がある場合は
 rules/project.example.mdを参考に導入先のrules/project.md等へ記載し、ut-kit.jsonのprojectRules配列へ登録する。
@@ -28,13 +28,15 @@ rules/project.example.mdを参考に導入先のrules/project.md等へ記載し�
 
 最後に導入した設定、適用可能なコマンド、検証結果、未対応事項を対象プロジェクトのut-kit-setup.mdへ保存する。導入済みでも将来のビルド設定変更後は再確認する。
 
-特定エージェントの内部ログやトークン取得は導入条件にしない。ファイル操作とPowerShell/Maven実行の可否を確認する。試運転ではreport.mdへの説明集約、成功ケースの集計、問題の個別記載、Maven時間を確認する。
+特定エージェントの内部ログやトークン取得は導入条件にしない。ファイル操作と選択した実行基盤/Mavenの起動の可否を確認する。試運転ではreport.mdへの説明集約、成功ケースの集計、問題の個別記載、Maven時間を確認する。
 
 仕様資料が用意できない場合はspec/reviewの-Jを案内できる。-Dとの併用や暗黙の代替はせず、docs/javadoc-mode.mdの契約参照・SPEC_UNKNOWN・保証範囲に従う。新たな設定やJavadocの自動追記は不要。
 
 ## 実行環境・Java互換性の確認
 
-現在のシェルだけで判断せず、$PSVersionTableとGet-Command powershell,pwshで利用可能な実行ファイルを確認する。
+まずdocs/runner-spec.mdで方式を確認する。Java版は同梱JARとJava 11以上を確認し、java.exeの絶対パスを導入記録へ残す。JAR起動にPowerShellスクリプトは使わない。対象MavenのjavaHomeとは別に確認する。失敗時の自動切替はしない。
+
+PowerShell版の場合、現在のシェルだけで判断せず、$PSVersionTableとGet-Command powershell,pwshで利用可能な実行ファイルを確認する。
 Windows PowerShell 5.1またはPowerShell 7を使用できる。選んだ実行ファイルの絶対パスと版を導入記録に残し、
 実行時はそのホストを-NoProfile -Fileで明示する。既定ターミナル変更やPowerShell追加導入は不要。
 スクリプトはUTF-8 BOM付きで保持する。設定JSON・生成JavaはUTF-8を使用する。

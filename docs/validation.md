@@ -213,3 +213,32 @@ Validate-Unicode.ps1、unicode-checks.json、stderr-checks.jsonも同フォル�
 - Java 25の実行環境はこのPCにない。0.8.14での正式対応は公式リリースを根拠とする
   導入方針であり、Java 25・対象企業プロジェクトの組合せを実動検証したものではない。
 - Mockito等を含む実際の依存構成、社内取得可否、実行ポリシーは導入先で確認する。
+
+## Javaランナー追加時の回帰確認（2026-10-15）
+
+新規導入の既定をJava、runner未指定の既存設定をPowerShellとした。
+配布JARはJDK 21.0.11でrelease 11としてビルドし、Maven clean verify成功。
+Java 11/25の実機実行は未確認。Windows以外も未検証。
+
+- Javaユニットテスト11件成功。引数・設定、保護、JSON/BOM、
+  XML/CDATA・外部エンティティ遮断、未計測時の終了判定を確認。
+- Java版で既存51項目、レポート25項目、Javadoc17項目、計93項目成功。
+- 既存設定（runner省略）のPowerShell 5.1版で既存51項目成功。
+- 追加13項目成功。PowerShell 5.1/7それぞれで明示powershellを受理し、
+  java/不正値を拒否。RestrictedのPowerShellからポリシー上書きなしで
+  JARのversionコマンドを直接起動。Rules有無×3モードの6実行について、
+  Java/PowerShellのテスト集計・終了コード・カバレッジ件数の一致を確認。
+
+実Mavenでcoverageは35件成功、spec/reviewは各48件中42成功・6FAIL。
+Javadocは2件中1成功・1FAIL。正当なFAILは維持している。
+試験用のPowerShellアダプターは既存検証ハーネス再利用のためだけに使用し、
+製品Javaランナーの起動にps1は不要。生成UTのAI品質を再評価した試験ではない。
+
+証跡はテスト環境 java-runner-validation-20261015-162126/ の
+checks.json、additional-checks.json、javadoc-checks.json、
+powershell/checks.json、runner-selection-checks.json、および各run。
+ユニットテスト結果はrunner/target/surefire-reports/。
+
+配布JARとソースのビルド結果のSHA-256一致、ライセンス同梱も確認。
+職場独自のJava/JAR実行制限やウイルス対策による制限を回避する機能ではない。
+日本語出力先に関する既存の制約は解消したと扱わない。

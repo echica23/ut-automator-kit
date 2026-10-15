@@ -58,7 +58,7 @@ reviewの修正案は採用した契約に従う場合の案として示し、�
 
 ## 実行基盤
 
-AIコマンド-Jはスクリプトprepareの-Javadocに対応する。
+AIコマンド-JはJava版prepareの--javadoc、PowerShell版prepareの-Javadocに対応する。
 run.jsonのspecSourceはimplementation/document/javadoc。
 -Jではspec=null、-Dではspecに解決済みパスを保存する。
 設定schemaVersion=1を維持し、新しいプロジェクト設定は不要。

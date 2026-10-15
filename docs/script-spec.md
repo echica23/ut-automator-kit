@@ -2,6 +2,8 @@
 
 対象: [scripts/Invoke-UtRun.ps1](../scripts/Invoke-UtRun.ps1)。この文書は現行実装の仕様であり、未実装の機能を含む将来計画ではありません。
 
+本書はPowerShell版の詳細。方式選択とJava版は[実行基盤の仕様](runner-spec.md)を参照。
+
 ## 1. 目的と責務
 
 AIが生成したUTを既存UTから分離して実行し、実際のSurefire/JaCoCo結果を機械集計する。実行フォルダと変更確認の方法を統一し、過去の結果の使い回しを避ける。
@@ -44,6 +46,7 @@ AIコマンドとの対応: `-P`→Project、`-coverage/-spec/-review`→Mode、
 
 | 項目 | 用途 |
 | --- | --- |
+| runner | java/powershell。省略時powershell。PowerShell版はjava指定を拒否。null・未知値はエラー |
 | schemaVersion | 1以外を拒否 |
 | maven | 実行可能ファイルのパスまたはコマンド名。executeで空を拒否。空白を含む追加引数を連結して設定しない |
 | javaHome | 指定時だけJAVA_HOMEを一時設定。通常のMaven実行後に元へ戻す |
@@ -112,7 +115,7 @@ Maven内部の依存取得、コンパイル、プラグイン処理はMavenの�
 | --- | --- | --- |
 | java/ | prepare | AIが後から置く生成UTのルート |
 | before-hashes.json | prepare | 絶対ファイルパス→SHA-256の対応表 |
-| run.json | prepare | schemaVersion/project/config/mode/targets/spec/specSource/projectRules（path・sha256配列）/runId/runPath/protectedPaths/startedAt |
+| run.json | prepare | schemaVersion/project/config/mode/runner/targets/spec/specSource/projectRules（path・sha256配列）/runId/runPath/protectedPaths/startedAt |
 | project-rules.json | prepare | schemaVersion、files（path・sha256配列）、status。未設定はNOT_CONFIGURED、登録ありはPENDING_AI_REVIEW。内容適用の完了を意味しない |
 | execution-started.json | execute開始前 | 開始時刻、maven、引数、UTクラス一覧。再利用防止マーカー |
 | ut-hashes.json | Maven実行前 | 生成JavaファイルのSHA-256。実行後の自動照合はしない |

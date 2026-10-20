@@ -108,3 +108,11 @@ Java版の公開ユニットテストに加え、同じMaven fixtureを両方式
 --targets/-Targetsには具体的な完全修飾名だけを渡し、-Gやglobを渡さない。
 run.json.targetsは最終対象。元の要求範囲とフィルターはreport.mdに記録する。
 [対象選択の仕様](target-selection.md)を参照。
+
+## 混合実行との境界
+
+-mixはAIが既存coverage/spec/reviewのprepare/executeへ分解する。
+mode=mixはランナーに渡さない。coverageはJavadocフラグなし、
+spec/reviewはJavadocフラグあり。--output/-Outputは新しいbatchディレクトリ。
+機械JSONのmode/specSourceや終了コードは変更せず、全体の意味付けはAIが行う。
+[混合実行仕様](mix-mode.md)の事前prepareと全期間の保護照合に従う。

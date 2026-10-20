@@ -294,3 +294,41 @@ com.example.lowerServiceimpl、com.other.OtherServiceImpl。
 レポートの対象範囲を照合し矛盾なし。更新Markdownのリンクと差分空白検査も成功。
 これは規則の文書レビューであり、実プロジェクトに対する生成・実行試験や
 Copilotの対象解決精度の実測ではない。
+
+## クラス単位mix（2026-10-21）
+
+実行プロンプトに-mix -Jを追加し、クラス自身の@ut.modeで既存3モードへ振り分ける。
+新しい期待値方式・ランナーCLIではない。Java/PowerShellランナーと配布JARはハッシュ不変。
+
+実機確認（JDK 21.0.11、Maven 3.9.9、Javaランナー）:
+- 標準Javadocで未登録@ut.modeは終了1。-tag "ut.mode:t:UT mode:"を付けると終了0。
+- 3グループをUT生成/実行より先にprepareし、before-hashesの一致を確認。
+- coverage/specは各1件成功。reviewは契約9・実装8の1件FAILを保持。
+  各対象のLine 2/2、JaCoCo生成、保護変更なし。Branchは分母なし。
+- 専用の別batchでspec生成UTのコンパイル不備を検出し、
+  独立したreviewグループを実行して1件の契約FAILを確認。
+- 新しいprepare後に保護対象を変更すると終了2、execution-started未生成。
+  Maven起動前に拒否。検証変更はfinallyで復元し、最後に集合・ハッシュ一致を確認。
+- 合計5子runで実Maven実行。統合レポートのリンクとモード別結果を確認。
+
+振り分け規則の文書レビュー:
+| 条件 | 期待する扱い |
+| --- | --- |
+| クラス自身にタグなし | 既定coverage |
+| 自身のタグがcoverage/spec/review | 明示モード |
+| 相反するタグ、同値の重複、不正値 | MODE_INVALIDで当該クラス保留 |
+| 親/メソッド/通常コメントにだけ指定 | 継承・メソッド振り分けはせず既定coverage。非対応位置を報告 |
+| 明示単一モードとタグが不一致 | コマンドを使用 |
+| -mixで-Jなし、-D併用、他モード併用 | 入力エラー |
+| タグはreviewだが契約なし | SPEC_UNKNOWN。coverageへ落とさない |
+| 全件除外/不正タグ | prepareせず未実行・未計測 |
+| -GとRules併用 | 範囲を拡大せず共通Rules→タグ→モード別Rules |
+
+証跡: テスト環境mix-validation-20261021/。
+tag-probe/results.json、Validate-Mix.ps1、group-results.json、
+continuation-results.json、guard.log、output/mix配下の各runと統合report.md。
+
+タグの振り分けはこの作業でAIがfixtureを読み確認し、試験ハーネスへ明示した。
+別エージェントの自律的な解釈精度や網羅的なJava構文解析の試験ではない。
+PowerShell版の新たな実Maven試験、JDK 11/25でのJavadoc生成は今回未実施。
+文書リンクの実在・規則の整合性を確認。Javadoc登録は導入先の生成設定で別途確認する。

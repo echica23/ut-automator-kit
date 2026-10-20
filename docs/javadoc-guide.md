@@ -274,3 +274,11 @@ ut -P "C:\projects\my-app" -review com.example.PriceService -J
 -Dと-Jは併用しません。今回のコメント補助参照は-Jに限り、
 -Dの根拠資料やcoverageの期待値方針は変更しません。
 成功ケースは集計し、FAIL・SPEC_UNKNOWNなどの問題を個別に説明します。
+
+## 必要なクラスだけ契約を照合する
+
+-mix -Jなら無指定クラスはcoverage、クラス自身のJavadocの@ut.mode specまたは
+@ut.mode reviewで契約照合へ振り分けられます。これは業務契約ではなく実行設定です。
+タグだけでは期待値は決まりません。契約不足はSPEC_UNKNOWNとなり、
+coverageへ自動で切り替わりません。メソッド単位・継承は非対応です。
+Javadoc生成には独自タグの登録が必要です。[混合実行の仕様](mix-mode.md)を参照してください。

@@ -9,7 +9,7 @@
 | ファイル | 置き場所・用意する人 | 役割と使うタイミング |
 | --- | --- | --- |
 | [prompts/setup.md](prompts/setup.md) | キットに同梱 | **導入指示書**。最初にAIへ読ませ、既存プロジェクトの調査・設定・試運転を進める |
-| [prompts/ut-instructions.md](prompts/ut-instructions.md) | キットに同梱 | **実行指示書**。導入後にAIへ読ませ、coverage/spec/reviewの動作を定める |
+| [prompts/ut-instructions.md](prompts/ut-instructions.md) | キットに同梱 | **実行指示書**。導入後にAIへ読ませ、coverage/spec/reviewとmixの動作を定める |
 | [templates/ut-kit.json](templates/ut-kit.json) | キットに同梱 | **設定のひな形**。AIが適用先の環境に合わせた設定を作るために使う |
 | [rules/project.example.md](rules/project.example.md) | キットに同梱 | **任意のテスト方針のひな形**。導入先の命名・Mock・レビュー規則等を用意する |
 | `ut-kit.json` | 導入時にAIが対象Javaプロジェクトのルートへ作成 | **そのプロジェクト専用の設定**。使用するMaven・Java・出力先などを記録し、毎回の実行で読む |
@@ -126,6 +126,32 @@ ut -P "C:\projects\my-app" -review com.example.* -J -G "*ServiceImpl.java"
 一致0件なら実行せず、条件を広げません。パス指定・複数パターンは初版では非対応です。
 詳細は[対象選択の仕様](docs/target-selection.md)を参照してください。
 
+## クラスごとにモードを選ぶ（-mix -J）
+
+~~~text
+ut -P "C:\projects\my-app" -mix com.example.* -J -G "*ServiceImpl.java"
+~~~
+
+指定のないクラスはcoverage、クラス自身のJavadocに指定がある場合はそのモードで実行します。
+
+~~~java
+/**
+ * 予約料金を計算する。
+ * @ut.mode review
+ */
+public class ReservationServiceImpl {
+}
+~~~
+
+値はcoverage/spec/review。メソッド単位・継承は非対応です。
+-J必須、-D不可。明示的な単一モード実行ではタグを無視します。
+不正指定はそのクラスを保留し、契約不足はSPEC_UNKNOWNとして残します。
+同一モードをまとめて実行し、<outputRoot>/mix/<日時-UUID>/report.mdへ集約します。
+各モードのテスト結果とカバレッジを区別し、coverage成功を業務契約の適合と扱いません。
+
+独自タグにはJavadoc生成時の登録が必要です。既存ビルドとの互換性確認と
+振り分け・レポートの詳細は[混合実行の仕様](docs/mix-mode.md)を参照してください。
+
 ## Javadocを根拠にする場合
 
 -JではJavadocを第一の根拠とし、通常コメントに明記された契約も補助的に参照します。
@@ -148,7 +174,7 @@ report.mdに参照箇所と確認できた契約の範囲を示します。不�
 
 [rules/project.example.md](rules/project.example.md)を参考に、導入先で `rules/project.md` を用意し、
 そのプロジェクトの `ut-kit.json` に `"projectRules": ["rules/project.md"]` を追加します。
-通常のcoverage/spec/reviewで自動参照します。省略・null・空配列なら従来の汎用ルールだけです。
+通常のcoverage/spec/review、およびmixの各グループで自動参照します。省略・null・空配列なら従来の汎用ルールだけです。
 ルールは「どうテストするか」を定め、選択した仕様（`-D`資料／`-J`契約）やキットの安全制約を上書きしません。
 優先順位・矛盾時の扱い・適用記録は [Project Rulesの設計](docs/project-rules.md) を参照してください。
 
